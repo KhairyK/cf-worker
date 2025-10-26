@@ -1,0 +1,6 @@
+name = "cdn-kyrt"
+main = "worker.js"
+compatibility_date = "2025-10-26"
+
+[vars]
+ORIGIN = "https://cdn.kyrt.my.id/"
