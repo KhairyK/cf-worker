@@ -7,10 +7,11 @@ export default {
     if (pathname === "/" || pathname === "") {
       return new Response(
         `<!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/kyrt-framework@2.0.11-alpha.2/kyrt.min.css" integrity="sha256-wmsfLl/ZP5x6WBBxBk/NDZbTuicqAm2H+losLwqFraE=" crossorigin="anonymous">
   <title>KYRT CDN || No File</title>
   <style>
     * {
