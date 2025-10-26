@@ -1,4 +1,4 @@
-name = "cdn-kyrt"
+name = "cdn"
 main = "worker.js"
 compatibility_date = "2025-10-26"
 
