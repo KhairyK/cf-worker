@@ -100,6 +100,24 @@ export default {
       );
     }
 
-    // Ambil file dari jsDelivr
+        // Ambil file dari jsDelivr
     const cdnURL = `https://cdn.jsdelivr.net/npm/${pkg}@${version}/${filePath}`;
     const upstream = await fetch(cdnURL);
+
+    if (!upstream.ok) {
+      return new Response(
+        JSON.stringify({ error: "File not found", filePath }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const headers = new Headers(upstream.headers);
+    headers.set("Access-Control-Allow-Origin", "*");
+    headers.set("Cache-Control", "public, max-age=31536000");
+
+    return new Response(await upstream.arrayBuffer(), {
+      status: 200,
+      headers,
+    });
+  },
+};
