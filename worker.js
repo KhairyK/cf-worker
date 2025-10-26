@@ -169,7 +169,8 @@ export default {
     <div class="hero-text">
       <h2>Bangun Ide Hebatmu Dengan Mudah</h2>
       <p>KYRT Framework adalah sebuah framework elegan dibuat dengan PHPin Labs</p>
-      <button onclick="window.location.href = 'https://ma-cdn.kyrt.my.id/kyrt';">Mulai Sekarang</button>
+      <button onclick="window.location.href = 'https:/kyrt.my.id/docs/how-to-use-kyrt-framework';">Mulai Sekarang</button>
+      <button onclick="window.location.href = 'https:/kyrt.my.id/docs/how-to-use-kyrt-cdn';">CDN KYRT</button>
     </div>
     <img src="https://kyrt.my.id/assets/kyrt_logo.jpg" alt="KYRT Image">
   </section>
