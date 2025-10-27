@@ -1,4 +1,4 @@
-import { untar } from 'fflate';
+import { untar } from "https://cdn.jsdelivr.net/npm/fflate/esm/index.js";
 
 export default {
   async fetch(request) {
