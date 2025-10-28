@@ -32,10 +32,32 @@ export default {
     if (response) return response;
 
     // Kalau gagal, fallback ke npm registry +_&
-    try {
-      const npmUrl = `${npmRegistryBase}${path}`;
-      const npmRes = await fetch(npmUrl, { headers: { "User-Agent": "KYRT-CDN-Proxy" } });
-      if (!npmRes.ok) return new Response("File not found", { status: 404 });
+try {
+  const npmUrl = `${npmRegistryBase}${path}`;
+  const npmRes = await fetch(npmUrl, { headers: { "User-Agent": "KYRT-CDN-Proxy" } });
+  if (!npmRes.ok) return new Response("File not found", { status: 404 });
+
+  const json = await npmRes.json();
+
+  // Cek apakah versi ada, kalau tidak fallback ke latest
+  let resolvedVersion = version;
+  if (!json.versions[version]) resolvedVersion = "latest";
+
+  const tarballUrl = json.versions[resolvedVersion]?.dist?.tarball;
+
+  if (!tarballUrl) return new Response("File not found", { status: 404 });
+
+  // Fetch tarball
+  const tarRes = await fetch(tarballUrl);
+  const tarBody = await tarRes.arrayBuffer();
+
+  return new Response(tarBody, {
+    status: 200,
+    headers: { "Content-Type": "application/octet-stream", "Cache-Control": "max-age=3600" }
+  });
+} catch (err) {
+  return new Response("Error: " + err.message, { status: 500 });
+          }
 
       const json = await npmRes.json();
 
