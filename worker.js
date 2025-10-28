@@ -1,82 +1,56 @@
-// server.js
-import express from 'express';
-import fetch from 'node-fetch';
-import NodeCache from 'node-cache';
-import path from 'path';
-import fs from 'fs';
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request, event))
+})
 
-const app = express();
-const PORT = 3000;
-
-// Cache memory (TTL 1 jam)
-const cache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
-
-const JSDELIVR = 'https://cdn.jsdelivr.net/npm/';
+const JSDELIVR_BASE = 'https://cdn.jsdelivr.net/npm/';
 const NPM_REGISTRY = 'https://registry.npmjs.org/';
 
-// Folder cache file (opsional, kalau mau persistent caching)
-const FILE_CACHE_DIR = path.join(process.cwd(), 'file_cache');
-if (!fs.existsSync(FILE_CACHE_DIR)) fs.mkdirSync(FILE_CACHE_DIR);
-
-app.get('/:packageName/:filePath(*)', async (req, res) => {
-  const { packageName, filePath } = req.params;
-  const cacheKey = `${packageName}/${filePath}`;
+async function handleRequest(request, event) {
+  const url = new URL(request.url);
+  const pathParts = url.pathname.slice(1).split('/');
   
-  try {
-    // 1. Cek cache memory dulu
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      console.log('Serving from memory cache:', cacheKey);
-      res.setHeader('Content-Type', cached.contentType);
-      return res.send(cached.data);
-    }
-
-    // 2. Cek file cache
-    const cachedFilePath = path.join(FILE_CACHE_DIR, encodeURIComponent(cacheKey));
-    if (fs.existsSync(cachedFilePath)) {
-      console.log('Serving from file cache:', cacheKey);
-      const data = fs.readFileSync(cachedFilePath);
-      res.setHeader('Content-Type', 'application/javascript'); // asumsi js
-      cache.set(cacheKey, { data, contentType: 'application/javascript' });
-      return res.send(data);
-    }
-
-    // 3. Coba fetch dari jsDelivr
-    const jsDelivrURL = `${JSDELIVR}${packageName}/${filePath}`;
-    let response = await fetch(jsDelivrURL);
-
-    if (!response.ok) {
-      // 4. Fallback ke npm registry
-      console.log('jsDelivr gagal, fallback ke npm registry:', cacheKey);
-      const npmResp = await fetch(`${NPM_REGISTRY}${packageName}`);
-      if (!npmResp.ok) return res.status(404).send('File tidak ditemukan');
-
-      const npmData = await npmResp.json();
-      const latestVersion = npmData['dist-tags'].latest;
-      const tarballURL = npmData.versions[latestVersion].dist.tarball;
-      return res.redirect(tarballURL);
-    }
-
-    // 5. Streaming ke buffer
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const contentType = response.headers.get('content-type') || 'application/octet-stream';
-
-    // 6. Simpan ke cache memory
-    cache.set(cacheKey, { data: buffer, contentType });
-
-    // 7. Simpan ke file cache
-    fs.writeFileSync(cachedFilePath, buffer);
-
-    // 8. Kirim ke user
-    res.setHeader('Content-Type', contentType);
-    res.send(buffer);
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
+  if (pathParts.length === 0) {
+    return new Response('Path invalid', { status: 400 });
   }
-});
 
-app.listen(PORT, () => {
-  console.log(`CDN proxy with cache running on http://localhost:${PORT}`);
-});
+  // Ambil package@version
+  const pkgAndVersion = pathParts.shift();
+  let [packageName, version] = pkgAndVersion.split('@');
+  if (!version) version = 'latest';
+
+  // Sisanya adalah file path
+  const filePath = pathParts.join('/');
+
+  const cacheKey = new Request(request.url, request);
+  const cache = caches.default;
+
+  // 1. Cek cache Cloudflare
+  let response = await cache.match(cacheKey);
+  if (response) return response;
+
+  // 2. Fetch dari jsDelivr
+  let jsDelivrURL = `${JSDELIVR_BASE}${packageName}@${version}/${filePath}`;
+  response = await fetch(jsDelivrURL);
+
+  if (!response.ok) {
+    // 3. Fallback ke npm registry
+    const npmResp = await fetch(`${NPM_REGISTRY}${packageName}`);
+    if (!npmResp.ok) return new Response('Package tidak ditemukan', { status: 404 });
+
+    const npmData = await npmResp.json();
+
+    // Ambil versi yang valid
+    if (version === 'latest') version = npmData['dist-tags'].latest;
+    else if (!npmData.versions[version]) return new Response('Versi tidak ditemukan', { status: 404 });
+
+    const tarballURL = npmData.versions[version].dist.tarball;
+
+    // Redirect ke tarball npm
+    response = Response.redirect(tarballURL, 302);
+  }
+
+  // 4. Simpan di cache Cloudflare
+  event.waitUntil(cache.put(cacheKey, response.clone()));
+
+  return response;
+}
